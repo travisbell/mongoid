@@ -6,8 +6,9 @@ module Mongoid
   # This module contains logic for easy access to objects that have a lifecycle
   # on the current thread.
   module Threaded
-    # The key for the shared thread- and fiber-local storage. It must be a
-    # symbol because keys for fiber-local storage must be symbols.
+    Fiber.attr_accessor :mongoid_isolation_storage
+
+    # The key for the shared thread local storage.
     STORAGE_KEY = :'[mongoid]'
 
     DATABASE_OVERRIDE_KEY = 'db-override'
@@ -38,6 +39,15 @@ module Mongoid
 
     extend self
 
+    def isolation_scope
+      case Config.real_isolation_level
+      when :thread
+        Thread.current
+      when :fiber
+        Fiber.current
+      end
+    end
+
     # Resets the current thread- or fiber-local storage to its initial state.
     # This is useful for making sure the state is clean when starting a new
     # thread or fiber.
@@ -47,9 +57,9 @@ module Mongoid
     def reset!
       case Config.real_isolation_level
       when :thread
-        Thread.current.thread_variable_set(STORAGE_KEY, nil)
+        isolation_scope.thread_variable_set(STORAGE_KEY, nil)
       when :fiber
-        Fiber[STORAGE_KEY] = nil
+        isolation_scope.mongoid_isolation_storage = nil
       else
         raise "Unknown isolation level: #{Config.real_isolation_level.inspect}"
       end
@@ -519,18 +529,16 @@ module Mongoid
     def storage
       case Config.real_isolation_level
       when :thread
-        storage_hash = Thread.current.thread_variable_get(STORAGE_KEY)
+        storage_hash = isolation_scope.thread_variable_get(STORAGE_KEY)
 
         unless storage_hash
           storage_hash = {}
-          Thread.current.thread_variable_set(STORAGE_KEY, storage_hash)
+          isolation_scope.thread_variable_set(STORAGE_KEY, storage_hash)
         end
 
         storage_hash
-
       when :fiber
-        Fiber[STORAGE_KEY] ||= {}
-
+        isolation_scope.mongoid_isolation_storage ||= {}
       else
         raise "Unknown isolation level: #{Config.real_isolation_level.inspect}"
       end
