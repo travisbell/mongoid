@@ -1,14 +1,12 @@
 # frozen_string_literal: true
-# rubocop:todo all
 
-require "mongoid/fields/standard"
-require "mongoid/fields/encrypted"
-require "mongoid/fields/foreign_key"
-require "mongoid/fields/localized"
-require "mongoid/fields/validators"
+require 'mongoid/fields/standard'
+require 'mongoid/fields/encrypted'
+require 'mongoid/fields/foreign_key'
+require 'mongoid/fields/localized'
+require 'mongoid/fields/validators'
 
 module Mongoid
-
   # This module defines behavior for fields.
   module Fields
     extend ActiveSupport::Concern
@@ -42,7 +40,7 @@ module Mongoid
     # This does not include aliases of _id field.
     #
     # @api private
-    IDS = [ :_id, '_id', ].freeze
+    IDS = [ :_id, '_id' ].freeze
 
     # BSON classes that are not supported as field types
     #
@@ -50,7 +48,7 @@ module Mongoid
     INVALID_BSON_CLASSES = [ BSON::Decimal128, BSON::Int32, BSON::Int64 ].freeze
 
     # The suffix for generated translated fields.
-    # 
+    #
     # @api private
     TRANSLATIONS_SFX = '_translations'
 
@@ -106,17 +104,17 @@ module Mongoid
           ar.each_with_index do |fn, i|
             key = fn
             unless klass.fields.key?(fn) || klass.relations.key?(fn)
-              if fn.end_with?(TRANSLATIONS_SFX)
-                key = fn.delete_suffix(TRANSLATIONS_SFX)
-              else
-                key = fn
-              end
+              key = if fn.end_with?(TRANSLATIONS_SFX)
+                      fn.delete_suffix(TRANSLATIONS_SFX)
+                    else
+                      fn
+                    end
 
             end
             res.push(key)
 
             if klass.fields.key?(fn)
-              res.push(ar.drop(i+1).join('.')) unless i == ar.length - 1
+              res.push(ar.drop(i + 1).join('.')) unless i == ar.length - 1
               break
             elsif klass.relations.key?(fn)
               klass = klass.relations[key].klass
@@ -133,7 +131,7 @@ module Mongoid
       class_attribute :pre_processed_defaults
       class_attribute :post_processed_defaults
 
-      self.aliased_fields = { "id" => "_id" }
+      self.aliased_fields = { 'id' => '_id' }
       self.fields = {}
       self.localized_fields = {}
       self.pre_processed_defaults = []
@@ -141,7 +139,7 @@ module Mongoid
 
       field(
         :_id,
-        default: ->{ BSON::ObjectId.new },
+        default: -> { BSON::ObjectId.new },
         pre_processed: true,
         type: BSON::ObjectId
       )
@@ -181,15 +179,14 @@ module Mongoid
     #
     # @param [ String ] name The name of the field.
     def apply_default(name)
-      unless attributes.key?(name)
-        if field = fields[name]
-          default = field.eval_default(self)
-          unless default.nil? || field.lazy?
-            attribute_will_change!(name)
-            attributes[name] = default
-          end
-        end
-      end
+      return if attributes.key?(name)
+      return unless field = fields[name]
+
+      default = field.eval_default(self)
+      return if default.nil? || field.lazy?
+
+      attribute_will_change!(name)
+      attributes[name] = default
     end
 
     # Apply all the defaults at once.
@@ -274,13 +271,12 @@ module Mongoid
     #
     # @param [ String ] name The field name.
     def validate_writable_field_name!(name)
-      if dot_dollar_field?(name)
-        raise Errors::InvalidDotDollarAssignment.new(self.class, name)
-      end
+      return unless dot_dollar_field?(name)
+
+      raise Errors::InvalidDotDollarAssignment.new(self.class, name)
     end
 
     class << self
-
       # Stores the provided block to be run when the option name specified is
       # defined on a field.
       #
@@ -341,9 +337,9 @@ module Mongoid
         klass = nil
         field = nil
         key.split('.').each_with_index do |meth, i|
-          fs = i == 0 ? fields : klass&.fields
-          rs = i == 0 ? associations : klass&.relations
-          as = i == 0 ? aliased_associations : klass&.aliased_associations
+          fs = (i == 0) ? fields : klass&.fields
+          rs = (i == 0) ? associations : klass&.relations
+          as = (i == 0) ? aliased_associations : klass&.aliased_associations
 
           # Associations can possibly have two "keys", their name and their alias.
           # The fields name is what is used to store it in the klass's relations
@@ -364,8 +360,8 @@ module Mongoid
           elsif rs && rel = rs[aliased]
             klass = rel.klass
             yield(meth, rel, false) if block_given?
-          else
-            yield(meth, nil, false) if block_given?
+          elsif block_given?
+            yield(meth, nil, false)
           end
         end
         field
@@ -413,7 +409,7 @@ module Mongoid
       #
       # @api private
       def database_field_name(name, relations, aliased_fields, aliased_associations)
-        return "" unless name.present?
+        return '' unless name.present?
 
         key = name.to_s
         segment, remaining = key.split('.', 2)
@@ -441,7 +437,6 @@ module Mongoid
     end
 
     module ClassMethods
-
       # Returns an array of names for the attributes available on this object.
       #
       # Provides the field names in an ORM-agnostic way. Rails v3.1+ uses this
@@ -463,6 +458,105 @@ module Mongoid
       # @return [ String ] The name of the field as it's stored in the db.
       def database_field_name(name)
         Fields.database_field_name(name, relations, aliased_fields, aliased_associations)
+      end
+
+      # Declares a vector embedding field and registers a corresponding Atlas
+      # Vector Search index for it in one step.
+      #
+      # The field is stored as an Array. For advanced index options
+      # (quantization, indexing method, HNSW tuning) use the explicit
+      # +field+ + +vector_search_index+ combination instead.
+      #
+      # @example Minimal declaration.
+      #   class Article
+      #     include Mongoid::Document
+      #     vector_field :embedding, dimensions: 1536
+      #   end
+      #
+      # @example With all options.
+      #   class Article
+      #     include Mongoid::Document
+      #     vector_field :embedding, dimensions: 1536,
+      #                              similarity: 'dotProduct',
+      #                              index: :article_vectors
+      #   end
+      #
+      # @param [ Symbol | String ] name The name of the embedding field.
+      # @param [ Integer ] dimensions The number of vector dimensions. Required.
+      # @param [ String ] similarity The similarity metric to use: 'cosine'
+      #   (default), 'euclidean', or 'dotProduct'.
+      # @param [ Symbol | String | nil ] index The name for the vector search
+      #   index. If omitted the index is unnamed and Atlas calls it 'default'.
+      def vector_field(name, dimensions:, similarity: 'cosine', index: nil)
+        field(name, type: Array)
+
+        field_spec = {
+          type: 'vector',
+          path: name.to_s,
+          numDimensions: dimensions,
+          similarity: similarity
+        }
+
+        if index
+          vector_search_index(index, fields: [ field_spec ])
+        else
+          vector_search_index(fields: [ field_spec ])
+        end
+      end
+
+      # Declares a text field and registers a corresponding Atlas Vector Search
+      # index for it using the auto-embedding (autoEmbed) type. Atlas generates
+      # the embeddings automatically at index and query time; no pre-computed
+      # vectors are required.
+      #
+      # @example Minimal declaration.
+      #   class Article
+      #     include Mongoid::Document
+      #     auto_embed_field :description
+      #   end
+      #
+      # @example With all options.
+      #   class Article
+      #     include Mongoid::Document
+      #     auto_embed_field :description,
+      #                      model: 'voyage-4',
+      #                      num_dimensions: 512,
+      #                      quantization: 'binary',
+      #                      similarity: 'cosine',
+      #                      index: :article_embed
+      #   end
+      #
+      # @param [ Symbol | String ] name The name of the text field to declare
+      #   and auto-embed.
+      # @param [ String ] model The embedding model name. Defaults to 'voyage-4'
+      #   (recommended). Supported values at Public Preview: voyage-4-large,
+      #   voyage-4, voyage-4-lite, voyage-code-3.
+      # @param [ Integer | nil ] num_dimensions Number of vector dimensions.
+      #   Supported values: 256, 512, 1024, 2048. Default: 1024.
+      # @param [ String | nil ] quantization Quantization type: float, scalar,
+      #   binary, or binaryNoRescore. Default: scalar.
+      # @param [ String | nil ] similarity Similarity function: dotProduct,
+      #   cosine, or euclidean.
+      # @param [ Symbol | String | nil ] index The index name. If omitted the
+      #   index is unnamed and Atlas calls it 'default'.
+      def auto_embed_field(name, model: 'voyage-4', num_dimensions: nil, quantization: nil, similarity: nil, index: nil)
+        field(name, type: String)
+
+        field_spec = {
+          type: 'autoEmbed',
+          modality: 'text',
+          path: name.to_s,
+          model: model
+        }
+        field_spec[:numDimensions] = num_dimensions if num_dimensions
+        field_spec[:quantization]  = quantization  if quantization
+        field_spec[:similarity]    = similarity    if similarity
+
+        if index
+          vector_search_index(index, fields: [ field_spec ])
+        else
+          vector_search_index(fields: [ field_spec ])
+        end
       end
 
       # Defines all the fields that are accessible on the Document
@@ -512,7 +606,7 @@ module Mongoid
       #
       # @return [ true | false ] If the class uses BSON::ObjectIds for the id.
       def using_object_ids?
-        fields["_id"].object_id_field?
+        fields['_id'].object_id_field?
       end
 
       # Traverse down the association tree and search for the field for the
@@ -548,12 +642,12 @@ module Mongoid
       def add_defaults(field)
         default, name = field.default_val, field.name.to_s
         remove_defaults(name)
-        unless default.nil?
-          if field.pre_processed?
-            pre_processed_defaults.push(name)
-          else
-            post_processed_defaults.push(name)
-          end
+        return if default.nil?
+
+        if field.pre_processed?
+          pre_processed_defaults.push(name)
+        else
+          post_processed_defaults.push(name)
         end
       end
 
@@ -599,9 +693,7 @@ module Mongoid
         field_options = field.options
 
         Fields.options.each_pair do |option_name, handler|
-          if field_options.key?(option_name)
-            handler.call(self, field, field_options[option_name])
-          end
+          handler.call(self, field, field_options[option_name]) if field_options.key?(option_name)
         end
       end
 
@@ -627,11 +719,11 @@ module Mongoid
         create_field_setter(name, meth, field)
         create_field_check(name, meth)
 
-        if options[:localize]
-          create_translations_getter(name, meth)
-          create_translations_setter(name, meth, field)
-          localized_fields[name] = field
-        end
+        return unless options[:localize]
+
+        create_translations_getter(name, meth)
+        create_translations_setter(name, meth, field)
+        localized_fields[name] = field
       end
 
       # Create the getter method for the provided field.
@@ -694,9 +786,7 @@ module Mongoid
         generated_methods.module_eval do
           re_define_method("#{meth}=") do |value|
             val = write_attribute(name, value)
-            if field.foreign_key?
-              remove_ivar(field.association.name)
-            end
+            remove_ivar(field.association.name) if field.foreign_key?
             val
           end
         end
@@ -774,6 +864,7 @@ module Mongoid
         @generated_methods ||= begin
           mod = Module.new
           include(mod)
+
           mod
         end
       end
@@ -805,6 +896,7 @@ module Mongoid
         return Fields::Localized.new(name, opts) if options[:localize]
         return Fields::ForeignKey.new(name, opts) if options[:identity]
         return Fields::Encrypted.new(name, opts) if options[:encrypt]
+
         Fields::Standard.new(name, opts)
       end
 
@@ -821,7 +913,7 @@ module Mongoid
       # @api private
       def retrieve_and_validate_type(name, type)
         result = TYPE_MAPPINGS[type] || unmapped_type(type)
-        raise Errors::InvalidFieldType.new(self, name, type) if !result.is_a?(Class)
+        raise Errors::InvalidFieldType.new(self, name, type) unless result.is_a?(Class)
 
         if unsupported_type?(result)
           warn_message = "Using #{result} as the field type is not supported. "
@@ -845,7 +937,7 @@ module Mongoid
       #
       # @api private
       def unmapped_type(type)
-        if "Boolean" == type.to_s
+        if 'Boolean' == type.to_s
           Mongoid::Boolean
         else
           type || Object
@@ -862,6 +954,7 @@ module Mongoid
       # @api private
       def unsupported_type?(type)
         return !Mongoid::Config.allow_bson5_decimal128? if type == BSON::Decimal128
+
         INVALID_BSON_CLASSES.include?(type)
       end
     end

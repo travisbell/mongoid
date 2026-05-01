@@ -1,5 +1,4 @@
 # frozen_string_literal: true
-# rubocop:todo all
 
 require 'spec_helper'
 
@@ -17,21 +16,21 @@ describe 'nested attributes assignment' do
                 volume: 2,
                 toys_attributes: {
                   '0' => {
-                    name: 'Bear',
-                  },
-                },
-              },
-            },
+                    name: 'Bear'
+                  }
+                }
+              }
+            }
           }
 
           truck.save!
 
           _truck = Truck.find(truck.id)
-          _truck.capacity.should == 1
-          _truck.crates.length.should == 1
-          _truck.crates.first.volume.should == 2
-          _truck.crates.first.toys.length.should == 1
-          _truck.crates.first.toys.first.name.should == 'Bear'
+          _truck.capacity.should eq 1
+          _truck.crates.length.should eq 1
+          _truck.crates.first.volume.should eq 2
+          _truck.crates.first.toys.length.should eq 1
+          _truck.crates.first.toys.first.name.should eq 'Bear'
         end
       end
     end
@@ -43,15 +42,14 @@ describe 'nested attributes assignment' do
         let(:truck) do
           Truck.create!(
             capacity: 1,
-            crates: [Crate.new(
+            crates: [ Crate.new(
               volume: 2,
-              toys: [Toy.new(name: 'Bear')],
-            )],
+              toys: [ Toy.new(name: 'Bear') ]
+            ) ]
           )
         end
 
         context 'updating embedded documents' do
-
           it 'persists all documents' do
             truck.attributes = {
               capacity: 2,
@@ -62,26 +60,25 @@ describe 'nested attributes assignment' do
                   toys_attributes: {
                     '0' => {
                       id: truck.crates.first.toys.first.id,
-                      name: 'Rhino',
-                    },
-                  },
-                },
-              },
+                      name: 'Rhino'
+                    }
+                  }
+                }
+              }
             }
 
             truck.save!
 
             _truck = Truck.find(truck.id)
-            _truck.capacity.should == 2
-            _truck.crates.length.should == 1
-            _truck.crates.first.volume.should == 3
-            _truck.crates.first.toys.length.should == 1
-            _truck.crates.first.toys.first.name.should == 'Rhino'
+            _truck.capacity.should eq 2
+            _truck.crates.length.should eq 1
+            _truck.crates.first.volume.should eq 3
+            _truck.crates.first.toys.length.should eq 1
+            _truck.crates.first.toys.first.name.should eq 'Rhino'
           end
         end
 
         context 'adding embedded documents' do
-
           it 'persists all changes' do
             truck.attributes = {
               capacity: 2,
@@ -90,24 +87,24 @@ describe 'nested attributes assignment' do
                   volume: 3,
                   toys_attributes: {
                     '0' => {
-                      name: 'Rhino',
-                    },
-                  },
-                },
-              },
+                      name: 'Rhino'
+                    }
+                  }
+                }
+              }
             }
 
             truck.save!
 
             _truck = Truck.find(truck.id)
-            _truck.capacity.should == 2
-            _truck.crates.length.should == 2
-            _truck.crates.first.volume.should == 2
-            _truck.crates.first.toys.length.should == 1
-            _truck.crates.first.toys.first.name.should == 'Bear'
-            _truck.crates.last.volume.should == 3
-            _truck.crates.last.toys.length.should == 1
-            _truck.crates.last.toys.last.name.should == 'Rhino'
+            _truck.capacity.should eq 2
+            _truck.crates.length.should eq 2
+            _truck.crates.first.volume.should eq 2
+            _truck.crates.first.toys.length.should eq 1
+            _truck.crates.first.toys.first.name.should eq 'Bear'
+            _truck.crates.last.volume.should eq 3
+            _truck.crates.last.toys.length.should eq 1
+            _truck.crates.last.toys.last.name.should eq 'Rhino'
           end
         end
       end

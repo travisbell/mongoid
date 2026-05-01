@@ -1,37 +1,36 @@
 # frozen_string_literal: true
-# rubocop:todo all
 
 require 'spec_helper'
 
 describe 'Contextual classes when dealing with empty result set' do
   shared_examples 'behave as expected' do
-    context '#exists?' do
+    describe '#exists?' do
       it 'is false' do
         context.exists?.should be false
       end
     end
 
-    context '#count' do
+    describe '#count' do
       it 'is 0' do
-        context.count.should == 0
+        context.count.should eq 0
       end
     end
 
-    context '#length' do
+    describe '#length' do
       it 'is 0' do
-        context.length.should == 0
+        context.length.should eq 0
       end
     end
 
     # #estimated_count only exists for Mongo
 
-    context '#distinct' do
+    describe '#distinct' do
       it 'is empty array' do
-        context.distinct(:foo).should == []
+        context.distinct(:foo).should eq []
       end
     end
 
-    context '#each' do
+    describe '#each' do
       context 'with block' do
         it 'does not invoke the block' do
           called = false
@@ -48,12 +47,12 @@ describe 'Contextual classes when dealing with empty result set' do
         end
 
         it 'returns empty Enumerable' do
-          context.each.to_a.should == []
+          context.each.to_a.should eq []
         end
       end
     end
 
-    context '#map' do
+    describe '#map' do
       context 'with block' do
         it 'does not invoke the block' do
           called = false
@@ -68,32 +67,32 @@ describe 'Contextual classes when dealing with empty result set' do
         it 'returns empty array' do
           skip 'MONGOID-5148'
 
-          context.map(:field).should == []
+          context.map(:field).should eq []
         end
       end
     end
 
-    context '#first' do
+    describe '#first' do
       it 'is nil' do
-        context.first.should be nil
+        context.first.should be_nil
       end
     end
 
-    context '#find_first' do
+    describe '#find_first' do
       it 'is nil' do
-        context.find_first.should be nil
+        context.find_first.should be_nil
       end
     end
 
-    context '#one' do
+    describe '#one' do
       it 'is nil' do
-        context.one.should be nil
+        context.one.should be_nil
       end
     end
 
-    context '#last' do
+    describe '#last' do
       it 'is nil' do
-        context.last.should be nil
+        context.last.should be_nil
       end
     end
   end

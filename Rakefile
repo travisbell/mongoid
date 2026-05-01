@@ -1,19 +1,16 @@
 # frozen_string_literal: true
-# rubocop:todo all
 
-require "bundler"
+require 'bundler'
 Bundler.setup
 
 ROOT = File.expand_path(File.join(File.dirname(__FILE__)))
 
 $: << File.join(ROOT, 'spec/shared/lib')
 
-require "rake"
-require "rspec/core/rake_task"
+require 'rake'
+require 'rspec/core/rake_task'
 
-if File.exist?('./spec/shared/lib/tasks/candidate.rake')
-  load 'spec/shared/lib/tasks/candidate.rake'
-end
+load 'spec/shared/lib/tasks/candidate.rake' if File.exist?('./spec/shared/lib/tasks/candidate.rake')
 
 desc 'Build the gem'
 task :build do
@@ -26,9 +23,9 @@ end
 # `rake version` is used by the deployment system so get the release version
 # of the product beng deployed. It must do nothing more than just print the
 # product version number.
-# 
+#
 # See the mongodb-labs/driver-github-tools/ruby/publish Github action.
-desc "Print the current value of Mongoid::VERSION"
+desc 'Print the current value of Mongoid::VERSION'
 task :version do
   require 'mongoid/version'
 
@@ -59,13 +56,44 @@ task :release do
   system 'gem', 'push', "mongoid-#{Mongoid::VERSION}.gem"
 end
 
-RSpec::Core::RakeTask.new("spec") do |spec|
-  spec.pattern = "spec/**/*_spec.rb"
+RSpec::Core::RakeTask.new('spec') do |spec|
+  spec.pattern = 'spec/**/*_spec.rb'
 end
 
 RSpec::Core::RakeTask.new('spec:progress') do |spec|
-  spec.rspec_opts = %w(--format progress)
-  spec.pattern = "spec/**/*_spec.rb"
+  spec.rspec_opts = %w[--format progress]
+  spec.pattern = 'spec/**/*_spec.rb'
+end
+
+RUBOCOPABLE = %w[ examples gemfiles perf lib spec mongoid.gemspec Gemfile Rakefile upload-api-docs ].freeze
+
+desc 'Run rubocop'
+task rubocop: %w[ rubocop:run ]
+
+namespace :rubocop do
+  desc 'Run rubocop on the codebase'
+  task :run do
+    Bundler.with_unbundled_env do
+      sh 'bundle', 'exec', 'rubocop', *RUBOCOPABLE, verbose: false
+    end
+  end
+
+  desc 'Add a git pre-commit hook that runs rubocop'
+  task :install_hook do
+    hook_path = File.join('.git', 'hooks', 'pre-commit')
+    hook_script = <<~HOOK
+      #!/usr/bin/env bash
+      set -e
+
+      echo "Running rubocop..."
+      rake rubocop
+    HOOK
+
+    File.write(hook_path, hook_script)
+    FileUtils.chmod('+x', hook_path)
+
+    puts "Git pre-commit hook installed at #{hook_path}."
+  end
 end
 
 desc 'Build and validate the evergreen config'
@@ -109,18 +137,18 @@ namespace :generate do
 end
 
 CLASSIFIERS = [
-  [%r,^mongoid/attribute,, :attributes],
-  [%r,^mongoid/association/[or],, :associations_referenced],
-  [%r,^mongoid/association,, :associations],
-  [%r,^mongoid,, :unit],
-  [%r,^integration,, :integration],
-  [%r,^rails,, :rails],
+  [ %r{^mongoid/attribute}, :attributes ],
+  [ %r{^mongoid/association/[or]}, :associations_referenced ],
+  [ %r{^mongoid/association}, :associations ],
+  [ /^mongoid/, :unit ],
+  [ /^integration/, :integration ],
+  [ /^rails/, :rails ]
 ]
 
-RUN_PRIORITY = %i(
+RUN_PRIORITY = %i[
   unit attributes associations_referenced associations
   integration rails
-)
+]
 
 def spec_organizer
   require 'mrss/spec_organizer'
@@ -128,7 +156,7 @@ def spec_organizer
   Mrss::SpecOrganizer.new(
     root: ROOT,
     classifiers: CLASSIFIERS,
-    priority_order: RUN_PRIORITY,
+    priority_order: RUN_PRIORITY
   )
 end
 
@@ -136,31 +164,31 @@ task :ci do
   spec_organizer.run
 end
 
-task :bucket, %i(buckets) do |task, args|
+task :bucket, %i[buckets] do |_task, args|
   buckets = args[:buckets]
   buckets = if buckets.nil? || buckets.empty?
-    [nil]
-  else
-    buckets.split(':').map do |bucket|
-      if bucket.empty?
-        nil
-      else
-        bucket.to_sym
-      end
-    end
-  end
+              [ nil ]
+            else
+              buckets.split(':').map do |bucket|
+                if bucket.empty?
+                  nil
+                else
+                  bucket.to_sym
+                end
+              end
+            end
   spec_organizer.run_buckets(*buckets)
 end
 
-task :default => :spec
+task default: :spec
 
-desc "Generate all documentation"
-task :docs => 'docs:yard'
+desc 'Generate all documentation'
+task docs: 'docs:yard'
 
 namespace :docs do
-  desc "Generate yard documentation"
+  desc 'Generate yard documentation'
   task :yard do
-    require "mongoid/version"
+    require 'mongoid/version'
 
     out = File.join('yard-docs', Mongoid::VERSION)
     FileUtils.rm_rf(out)

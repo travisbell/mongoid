@@ -1,5 +1,4 @@
 # frozen_string_literal: true
-# rubocop:todo all
 
 require 'spec_helper'
 require 'mongoid/association/referenced/has_one_models'
@@ -26,8 +25,8 @@ describe 'has_one associations' do
       it 'destroys' do
         address
 
-        HomCollege.count.should == 1
-        HomAddress.count.should == 1
+        HomCollege.count.should eq 1
+        HomAddress.count.should eq 1
 
         HomCollege.with_session do |session|
           session.with_transaction do
@@ -35,8 +34,8 @@ describe 'has_one associations' do
           end
         end
 
-        HomCollege.count.should == 0
-        HomAddress.count.should == 0
+        HomCollege.count.should eq 0
+        HomAddress.count.should eq 0
       end
     end
 
@@ -50,8 +49,8 @@ describe 'has_one associations' do
       it 'does not destroy' do
         address
 
-        HomCollege.count.should == 1
-        HomAddress.count.should == 1
+        HomCollege.count.should eq 1
+        HomAddress.count.should eq 1
 
         lambda do
           HomCollege.with_session do |session|
@@ -61,8 +60,8 @@ describe 'has_one associations' do
           end
         end.should raise_error(Mongoid::Errors::DocumentNotDestroyed)
 
-        HomCollege.count.should == 1
-        HomAddress.count.should == 1
+        HomCollege.count.should eq 1
+        HomAddress.count.should eq 1
       end
     end
   end
@@ -77,28 +76,26 @@ describe 'has_one associations' do
     shared_examples 'delegates to the field' do |reloaded: false|
       context 'non-conflicting field name' do
         it 'delegates to the field' do
-          parent.accreditation.price.should == 42
+          parent.accreditation.price.should eq 42
         end
 
         context 'using send' do
           it 'delegates to the field' do
-            parent.accreditation.send(:price).should == 42
+            parent.accreditation.send(:price).should eq 42
           end
         end
       end
 
       context 'field name that conflicts with Kernel' do
         it 'delegates to the field' do
-          parent.accreditation.format.should == 'fmt'
+          parent.accreditation.format.should eq 'fmt'
         end
 
         context 'using send' do
           it 'delegates to the field' do
-            if reloaded
-              pending 'MONGOID-5018'
-            end
+            pending 'MONGOID-5018' if reloaded
 
-            parent.accreditation.send(:format).should == 'fmt'
+            parent.accreditation.send(:format).should eq 'fmt'
           end
         end
       end
@@ -146,11 +143,11 @@ describe 'has_one associations' do
       end
 
       it 'does not destroy the dependent object' do
-        person.game.should == game
+        person.game.should eq game
         person.game = person.game
         person.save!
         person.reload
-        person.game.should == game
+        person.game.should eq game
       end
     end
 
@@ -166,23 +163,23 @@ describe 'has_one associations' do
       end
 
       it 'does not destroy the dependent object' do
-        person.account.should == account
+        person.account.should eq account
         person.account = person.account
         person.save!
         person.reload
-        person.account.should == account
+        person.account.should eq account
       end
     end
   end
 
-  context "when assigning to a has_one" do
+  context 'when assigning to a has_one' do
     let(:post) { HomPost.create! }
-    let(:comment1) { HomComment.create!(content: "Comment 1") }
+    let(:comment1) { HomComment.create!(content: 'Comment 1') }
 
-    context "when assigning the same value" do
+    context 'when assigning the same value' do
       let(:comment2) { HomComment.create! }
 
-      it "persists it correctly" do
+      it 'persists it correctly' do
         post.comment = comment1
         post.reload
         expect(post.comment).to eq(comment1)
@@ -193,10 +190,10 @@ describe 'has_one associations' do
       end
     end
 
-    context "when assigning two values with the same _id" do
+    context 'when assigning two values with the same _id' do
       let(:comment2) { HomComment.new(id: comment1.id) }
 
-      it "raises a duplicate key error" do
+      it 'raises a duplicate key error' do
         post.comment = comment1
         expect do
           post.comment = comment2
@@ -204,17 +201,17 @@ describe 'has_one associations' do
       end
     end
 
-    context "when duping the object and changing attributes" do
+    context 'when duping the object and changing attributes' do
       let(:comment2) { comment1.dup }
 
       before do
-        comment2.content = "Comment 2"
+        comment2.content = 'Comment 2'
 
         post.comment = comment1
         post.reload
       end
 
-      it "updates the attributes correctly" do
+      it 'updates the attributes correctly' do
         post.comment = comment2
         post.reload
 
@@ -223,10 +220,10 @@ describe 'has_one associations' do
       end
     end
 
-    context "when explicitly setting the foreign key" do
-      let(:comment2) { HomComment.new(container_id: post.id, container_type: post.class.name, content: "2") }
+    context 'when explicitly setting the foreign key' do
+      let(:comment2) { HomComment.new(container_id: post.id, container_type: post.class.name, content: '2') }
 
-      it "persists the new comment" do
+      it 'persists the new comment' do
         post.comment = comment1
         post.reload
 
@@ -238,10 +235,10 @@ describe 'has_one associations' do
       end
     end
 
-    context "when reassigning the same value" do
-      let(:comment2) { HomComment.create!(content: "Comment 2") }
+    context 'when reassigning the same value' do
+      let(:comment2) { HomComment.create!(content: 'Comment 2') }
 
-      it "persists it correctly" do
+      it 'persists it correctly' do
         post.comment = comment1
         post.reload
         expect(post.comment).to eq(comment1)
@@ -257,17 +254,17 @@ describe 'has_one associations' do
     end
   end
 
-  context "when overwriting an association" do
-    let(:post1) { HomPost.create!(title: "post 1") }
-    let(:post2) { HomPost.create!(title: "post 2") }
+  context 'when overwriting an association' do
+    let(:post1) { HomPost.create!(title: 'post 1') }
+    let(:post2) { HomPost.create!(title: 'post 2') }
     let(:comment) { HomComment.create(post: post1) }
 
-    it "does not overwrite the original value" do
-      pending "MONGOID-3999"
+    it 'does not overwrite the original value' do
+      pending 'MONGOID-3999'
       p1 = comment.container
-      expect(p1.title).to eq("post 1")
+      expect(p1.title).to eq('post 1')
       comment.container = post2
-      expect(p1.title).to eq("post 1")
+      expect(p1.title).to eq('post 1')
     end
   end
 
@@ -291,7 +288,7 @@ describe 'has_one associations' do
             comment_attributes: {
               _id: grandchild.id,
               content: updated_grandchild_content,
-              num: updated_grandchild_num,
+              num: updated_grandchild_num
             }
           }
         }
@@ -300,7 +297,7 @@ describe 'has_one associations' do
       context 'when the grandchild is invalid' do
         let(:updated_grandchild_num) { -1 } # invalid value
 
-        it 'will not save the parent' do
+        it 'does not save the parent' do
           expect(post.update(attributes)).to be_falsey
           expect(post.errors).not_to be_empty
           expect(post.reload.title).not_to eq(updated_parent_title)
@@ -312,7 +309,7 @@ describe 'has_one associations' do
       context 'when the grandchild is valid' do
         let(:updated_grandchild_num) { 1 }
 
-        it 'will save the parent' do
+        it 'saves the parent' do
           expect(post.update(attributes)).to be_truthy
           expect(post.errors).to be_empty
           expect(post.reload.title).to eq(updated_parent_title)

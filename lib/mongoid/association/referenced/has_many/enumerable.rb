@@ -1,5 +1,4 @@
 # frozen_string_literal: true
-# rubocop:todo all
 
 require 'mongoid/pluckable'
 
@@ -7,7 +6,6 @@ module Mongoid
   module Association
     module Referenced
       class HasMany
-
         # This class is the wrapper for all referenced associations that have a
         # target that can be a criteria or array of _loaded documents. This
         # handles both cases or a combination of the two.
@@ -35,6 +33,7 @@ module Mongoid
           # @return [ true | false ] If the objects are equal.
           def ==(other)
             return false unless other.respond_to?(:entries)
+
             entries == other.entries
           end
 
@@ -49,6 +48,7 @@ module Mongoid
           # @return [ true | false ] If the objects are equal in a case.
           def ===(other)
             return false unless other.respond_to?(:entries)
+
             entries === other.entries
           end
 
@@ -65,7 +65,7 @@ module Mongoid
             self
           end
 
-          alias :push :<<
+          alias push <<
 
           # Clears out all the documents in this enumerable. If passed a block it
           # will yield to each document that is in memory.
@@ -79,10 +79,8 @@ module Mongoid
           #   end
           #
           # @return [ Array<Document> ] The cleared out _added docs.
-          def clear
-            if block_given?
-              in_memory { |doc| yield(doc) }
-            end
+          def clear(&block)
+            in_memory(&block) if block_given?
             _loaded.clear and _added.clear
           end
 
@@ -107,12 +105,10 @@ module Mongoid
           #
           # @return [ Document ] The deleted document.
           def delete(document)
-            doc = (_loaded.delete(document._id) || _added.delete(document._id))
-            unless doc
-              if _unloaded && _unloaded.where(_id: document._id).exists?
-                yield(document) if block_given?
-                return document
-              end
+            doc = _loaded.delete(document._id) || _added.delete(document._id)
+            if !doc && _unloaded && _unloaded.where(_id: document._id).exists?
+              yield(document) if block_given?
+              return document
             end
             yield(doc) if block_given?
             doc
@@ -163,11 +159,10 @@ module Mongoid
           #
           # @return [ true ] That the enumerable is now _loaded.
           def each
-            unless block_given?
-              return to_enum
-            end
+            return to_enum unless block_given?
+
             if _loaded?
-              _loaded.each_pair do |id, doc|
+              _loaded.each_pair do |_id, doc|
                 document = _added.delete(doc._id) || doc
                 set_base(document)
                 yield(document)
@@ -180,7 +175,7 @@ module Mongoid
                 yield(document)
               end
             end
-            _added.each_pair do |id, doc|
+            _added.each_pair do |_id, doc|
               yield(doc)
             end
             @executed = true
@@ -248,9 +243,9 @@ module Mongoid
           # @return [ Document ] The first document found.
           def first(limit = nil)
             _loaded.try(:values).try(:first) ||
-                _added[(ul = _unloaded.try(:first, limit)).try(:_id)] ||
-                ul ||
-                _added.values.try(:first)
+              _added[(ul = _unloaded.try(:first, limit)).try(:_id)] ||
+              ul ||
+              _added.values.try(:first)
           end
 
           # Initialize the new enumerable either with a criteria or an array.
@@ -269,9 +264,8 @@ module Mongoid
               @_added, @executed, @_loaded, @_unloaded = {}, false, {}, target
             else
               @_added, @executed = {}, true
-              @_loaded = target.inject({}) do |_target, doc|
+              @_loaded = target.each_with_object({}) do |doc, _target|
                 _target[doc._id] = doc if doc
-                _target
               end
             end
           end
@@ -286,6 +280,7 @@ module Mongoid
           # @return [ true | false ] If the document is in the target.
           def include?(doc)
             return super unless _unloaded
+
             _unloaded.where(_id: doc._id).exists? || _added.has_key?(doc._id)
           end
 
@@ -333,9 +328,9 @@ module Mongoid
           # @return [ Document ] The last document found.
           def last(limit = nil)
             _added.values.try(:last) ||
-                _loaded.try(:values).try(:last) ||
-                _added[(ul = _unloaded.try(:last, limit)).try(:_id)] ||
-                ul
+              _loaded.try(:values).try(:last) ||
+              _added[(ul = _unloaded.try(:last, limit)).try(:_id)] ||
+              ul
           end
 
           # Loads all the documents in the enumerable from the database.
@@ -344,7 +339,7 @@ module Mongoid
           #   enumerable.load_all!
           #
           # @return [ true ] That the enumerable is _loaded.
-          alias :load_all! :entries
+          alias load_all! entries
 
           # Has the enumerable been _loaded? This will be true if the criteria has
           # been executed or we manually load the entire thing.
@@ -364,7 +359,7 @@ module Mongoid
           #
           # @return [ Array<Object> ] The dumped data.
           def marshal_dump
-            [_added, _loaded, _unloaded, @executed]
+            [ _added, _loaded, _unloaded, @executed ]
           end
 
           # Loads the data needed to Marshal.load an enumerable proxy.
@@ -398,11 +393,11 @@ module Mongoid
                 results.concat pluck_from_documents(docs, prepared[:field_names], document_class: klass)
               elsif _unloaded
                 criteria = if _added.any?
-                  ids_to_exclude = _added.keys
-                  _unloaded.not(:_id.in => ids_to_exclude)
-                else
-                  _unloaded
-                end
+                             ids_to_exclude = _added.keys
+                             _unloaded.not(:_id.in => ids_to_exclude)
+                           else
+                             _unloaded
+                           end
 
                 results.concat criteria.pluck(*keys)
               end
@@ -484,7 +479,7 @@ module Mongoid
             end
           end
 
-          alias :length :size
+          alias length size
 
           # Send #to_json to the entries.
           #
@@ -510,6 +505,71 @@ module Mongoid
             entries.as_json(options)
           end
 
+          # Get the sum of the provided field for all documents in the
+          # enumerable. When the association is loaded, computes in memory
+          # without querying the database.
+          #
+          # @example Get the sum of a field.
+          #   enumerable.sum(:likes)
+          #
+          # @param [ Symbol ] field The field to sum.
+          #
+          # @return [ Numeric ] The sum value.
+          def sum(field = nil)
+            return super(field || 0) if block_given?
+
+            field_values_for(field).sum || 0
+          end
+
+          # Get the average of the provided field for all documents in the
+          # enumerable. When the association is loaded, computes in memory
+          # without querying the database.
+          #
+          # @example Get the average of a field.
+          #   enumerable.avg(:likes)
+          #
+          # @param [ Symbol ] field The field to average.
+          #
+          # @return [ Float | nil ] The average value or nil if no documents.
+          def avg(field)
+            values = field_values_for(field)
+            return nil if values.empty?
+
+            values.sum / values.size.to_f
+          end
+
+          # Get the minimum value of the provided field for all documents in
+          # the enumerable. When the association is loaded, computes in memory
+          # without querying the database.
+          #
+          # @example Get the min of a field.
+          #   enumerable.min(:likes)
+          #
+          # @param [ Symbol ] field The field to min.
+          #
+          # @return [ Numeric | nil ] The min value or nil if no documents.
+          def min(field = nil)
+            return super() if block_given?
+
+            field_values_for(field).min
+          end
+
+          # Get the maximum value of the provided field for all documents in
+          # the enumerable. When the association is loaded, computes in memory
+          # without querying the database.
+          #
+          # @example Get the max of a field.
+          #   enumerable.max(:likes)
+          #
+          # @param [ Symbol ] field The field to max.
+          #
+          # @return [ Numeric | nil ] The max value or nil if no documents.
+          def max(field = nil)
+            return super() if block_given?
+
+            field_values_for(field).max
+          end
+
           # Return all the unique documents in the enumerable.
           #
           # @note This operation loads all documents from the database.
@@ -524,10 +584,19 @@ module Mongoid
 
           private
 
+          # Collect non-nil values for the given field from all documents.
+          #
+          # @param [ Symbol ] field The field name.
+          #
+          # @return [ Array<Numeric> ] The non-nil field values.
+          def field_values_for(field)
+            map { |doc| doc.public_send(field) }.compact
+          end
+
           def set_base(document)
-            if @_association.is_a?(Referenced::HasMany)
-              document.set_relation(@_association.inverse, @_base) if @_association
-            end
+            return unless @_association.is_a?(Referenced::HasMany)
+
+            document.set_relation(@_association.inverse, @_base) if @_association
           end
 
           ruby2_keywords def method_missing(name, *args, &block)

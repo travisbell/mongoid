@@ -1,4 +1,3 @@
-# rubocop:todo all
 def standard_dependencies
   gem 'rake'
 
@@ -21,10 +20,10 @@ def standard_dependencies
 
   group :development, :test do
     gem 'rspec', '~> 3.12'
-    gem 'rubocop', '~> 1.45.1'
-    gem 'rubocop-performance', '~> 1.16.0'
-    gem 'rubocop-rake', '~> 0.6.0'
-    gem 'rubocop-rspec', '~> 2.18.1'
+    gem 'rubocop', '~> 1.86.0'
+    gem 'rubocop-performance', '~> 1.26.1'
+    gem 'rubocop-rake', '~> 0.7.1'
+    gem 'rubocop-rspec', '~> 3.9.0'
 
     platform :mri do
       gem 'byebug'
@@ -49,7 +48,7 @@ def standard_dependencies
     end
   end
 
-  if ENV['FLE'] == 'helper'
-    gem 'libmongocrypt-helper', '~> 1.14.0'
-  end
+  return unless ENV['FLE'] == 'helper'
+
+  gem 'libmongocrypt-helper', '~> 1.14.0'
 end

@@ -1,16 +1,22 @@
 # frozen_string_literal: true
-# rubocop:todo all
 
 module Mongoid
   module Association
-
     # This is the superclass for all many to one and many to many association
     # proxies.
     class Many < Association::Proxy
       extend Forwardable
       include ::Enumerable
 
-      def_delegators :criteria, :avg, :max, :min, :sum
+      %i[avg max min sum].each do |method|
+        define_method(method) do |*args, &block|
+          if _target.respond_to?(:_loaded?) && _target._loaded?
+            _target.public_send(method, *args, &block)
+          else
+            criteria.public_send(method, *args, &block)
+          end
+        end
+      end
       def_delegators :_target, :length, :size, :any?
 
       # Is the association empty?
@@ -222,13 +228,18 @@ module Mongoid
       def compute_cache_version(timestamp_column)
         timestamp_column = timestamp_column.to_s
 
-        loaded = _target.respond_to?(:_loaded?) ?
-                    _target._loaded? :   # has_many
-                    true                 # embeds_many
+        # has_many
+        loaded = if _target.respond_to?(:_loaded?)
+                   _target._loaded?
+                 else
+                   true
+                 end # embeds_many
 
-        size, timestamp = loaded ?
-          analyze_loaded_target(timestamp_column) :
-          analyze_unloaded_target(timestamp_column)
+        size, timestamp = if loaded
+                            analyze_loaded_target(timestamp_column)
+                          else
+                            analyze_unloaded_target(timestamp_column)
+                          end
 
         if timestamp
           "#{size}-#{timestamp.utc.to_formatted_s(klass.cache_timestamp_format)}"
@@ -250,14 +261,14 @@ module Mongoid
       # $sum and a $max.
       def analyze_unloaded_target(timestamp_column)
         pipeline = criteria
-          .group(_id: nil,
-                 count: { '$sum' => 1 },
-                 latest: { '$max' => "$#{timestamp_column}" })
-          .pipeline
+                   .group(_id: nil,
+                          count: { '$sum' => 1 },
+                          latest: { '$max' => "$#{timestamp_column}" })
+                   .pipeline
 
         result = klass.collection.aggregate(pipeline).to_a.first
 
-        result ? [ result["count"], result["latest"] ] : [ 0 ]
+        result ? [ result['count'], result['latest'] ] : [ 0 ]
       end
     end
   end

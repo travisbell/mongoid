@@ -1,5 +1,4 @@
 # frozen_string_literal: true
-# rubocop:todo all
 
 require 'spec_helper'
 require_relative '../mongoid/shardable_models'
@@ -10,16 +9,16 @@ describe 'Sharding helpers' do
 
   describe 'shard_collection rake task' do
     let(:shard_collections) do
-      Mongoid::Tasks::Database.shard_collections([model_cls])
+      Mongoid::Tasks::Database.shard_collections([ model_cls ])
     end
 
     let(:create_indexes) do
-      Mongoid::Tasks::Database.create_indexes([model_cls])
+      Mongoid::Tasks::Database.create_indexes([ model_cls ])
     end
 
     shared_examples_for 'shards collection' do
       it 'returns the model class' do
-        shard_collections.should == [model_cls]
+        shard_collections.should eq [ model_cls ]
       end
 
       it 'shards collection' do
@@ -73,7 +72,7 @@ describe 'Sharding helpers' do
       let(:model_cls) { SmMovie }
 
       before do
-        Mongoid::Tasks::Database.shard_collections([model_cls])
+        Mongoid::Tasks::Database.shard_collections([ model_cls ])
       end
 
       it_behaves_like 'shards collection'
@@ -100,7 +99,7 @@ describe 'Sharding helpers' do
       let(:model_cls) { SmActor }
 
       it 'returns empty array' do
-        shard_collections.should == []
+        shard_collections.should eq []
       end
 
       it 'does not shards collection' do
@@ -109,18 +108,17 @@ describe 'Sharding helpers' do
         stats = model_cls.collection.database.command(collStats: model_cls.collection.name).first
         stats[:sharded].should be false
       end
-
     end
 
     context 'when models have no sharded configuration' do
       let(:model_cls) { SmNotSharded }
 
       before do
-        model_cls.shard_config.should be nil
+        model_cls.shard_config.should be_nil
       end
 
       it 'returns empty array' do
-        shard_collections.should == []
+        shard_collections.should eq []
       end
 
       context 'pre-4.2' do
